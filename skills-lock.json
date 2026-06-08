@@ -1,0 +1,25 @@
+{
+  "version": 1,
+  "skills": {
+    "wix-app": {
+      "source": "/Users/learnndlovu/Desktop/zoho-integration/node_modules/@wix/agent-skills",
+      "sourceType": "local",
+      "computedHash": "6c1d832acb51b15bfd3fac18fb21a586ba7183d807b941b80d806cec1ad11be5"
+    },
+    "wix-design-system": {
+      "source": "/Users/learnndlovu/Desktop/zoho-integration/node_modules/@wix/agent-skills",
+      "sourceType": "local",
+      "computedHash": "af6e5b9f59ccf5833b266ecebe564875bc57c228e4d6a9a6a09ac8de8e2ec58f"
+    },
+    "wix-headless": {
+      "source": "/Users/learnndlovu/Desktop/zoho-integration/node_modules/@wix/agent-skills",
+      "sourceType": "local",
+      "computedHash": "e11c4accfe0556e1c741f163408adbf06209bd4d690fbde3d8481b8988ecad19"
+    },
+    "wix-manage": {
+      "source": "/Users/learnndlovu/Desktop/zoho-integration/node_modules/@wix/agent-skills",
+      "sourceType": "local",
+      "computedHash": "1afaddda3e8c66c54174bb6e008edd56a317ce8d7ab2146c20e6a394d353c972"
+    }
+  }
+}
