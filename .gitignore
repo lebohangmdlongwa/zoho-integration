@@ -24,3 +24,20 @@ npm-debug.log*
 .DS_Store
 .idea/
 out
+
+# markdown files (except CLAUDE.md and README.md)
+*.md
+!CLAUDE.md
+!README.md
+
+# Wix skills folder
+WixCustomSkills/
+.agents/
+
+# secrets
+src/backend/_shared/supabase-client.ts
+
+WixBlocksCode/
+
+# Zoho base integration reference folder (not part of this project)
+ZOHO_BASE_INTEGRATION/

@@ -15,7 +15,12 @@
     "typecheck": "astro check"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.106.1",
+    "@wix/app-management": "^1.0.149",
     "@wix/astro": "^2.38.0",
+    "@wix/business-tools": "^1.0.223",
+    "@wix/contacts": "^1.0.27",
+    "@wix/crm": "^1.0.1536",
     "@wix/dashboard": "^1.3.43",
     "@wix/design-system": "^1.154.0",
     "@wix/essentials": "^0.1.23",
@@ -26,6 +31,7 @@
     "@astrojs/check": "^0.9.9",
     "@astrojs/cloudflare": "^12.5.3",
     "@astrojs/react": "^4.3.0",
+    "@types/node": "^25.9.1",
     "@types/react": "^18.3.1",
     "@types/react-dom": "^18.3.1",
     "@wix/cli": "^1.1.135",
