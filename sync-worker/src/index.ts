@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 import { handleCallback, handleWebhook } from './webhook';
 import { renewExpiringChannels } from './channel-renewal';
+import { processDealsPhase } from './deals-sync';
 
 export interface Env {
 	ZOHO_CLIENT_ID: string;
@@ -1004,9 +1005,11 @@ async function runSyncTick(env: Env, jobId: string): Promise<void> {
 		return;
 	}
 
+	const jobType = (job.stats as any)?.jobType ?? 'contacts';
 	console.log('[zoho-sync] runSyncTick: processing', {
 		jobId: job.id,
 		status: job.status,
+		jobType,
 		phase1_done: job.phase1_done,
 		phase2_done: job.phase2_done,
 		cursor: job.phase2_cursor ?? null,
@@ -1019,8 +1022,12 @@ async function runSyncTick(env: Env, jobId: string): Promise<void> {
 			// so the next tick will naturally move to Phase 2.
 			await enqueueSyncTick(env, jobId);
 		} else if (!job.phase2_done) {
-			await processPhase2Tick(env, supabase, job as Record<string, unknown>);
-			// Re-fetch to check whether this was the last Phase 2 page
+			if (jobType === 'deals') {
+				await processDealsPhase(env, supabase, job as Record<string, unknown>);
+			} else {
+				await processPhase2Tick(env, supabase, job as Record<string, unknown>);
+			}
+			// Re-fetch to check whether this was the last page
 			const { data: updated } = await supabase
 				.from('sync_jobs')
 				.select('phase2_done')
@@ -1029,7 +1036,7 @@ async function runSyncTick(env: Env, jobId: string): Promise<void> {
 			if (!updated?.phase2_done) {
 				await enqueueSyncTick(env, jobId);
 			} else {
-				console.log('[zoho-sync] runSyncTick: Phase 2 complete', { jobId });
+				console.log('[zoho-sync] runSyncTick: phase 2 complete', { jobId, jobType });
 			}
 		} else {
 			await supabase
@@ -1082,6 +1089,46 @@ export default {
 
 				await enqueueSyncTick(env, body.jobId);
 				return new Response('OK', { status: 200 });
+			} catch (err) {
+				return new Response(String(err), { status: 500 });
+			}
+		}
+
+		if (url.pathname === '/trigger-deals-sync' && request.method === 'POST') {
+			try {
+				let body: { instanceId?: string };
+				try { body = (await request.json()) as { instanceId?: string }; }
+				catch { return new Response('Invalid JSON', { status: 400 }); }
+				if (!body.instanceId) return new Response('instanceId required', { status: 400 });
+
+				const supabase = getSupabase(env);
+				const { data: existingJob } = await supabase
+					.from('sync_jobs')
+					.select('id, status')
+					.eq('instance_id', body.instanceId)
+					.not('status', 'in', '("done","failed")')
+					.maybeSingle();
+				if (existingJob) return new Response('A sync is already in progress', { status: 409 });
+
+				const { data: newJob, error } = await supabase
+					.from('sync_jobs')
+					.insert({
+						instance_id: body.instanceId,
+						status: 'pending',
+						phase1_done: true,   // deals skip Phase 1 — no Wix→Zoho direction
+						phase2_done: false,
+						phase1_cursor: null,
+						phase2_cursor: null,
+						stats: { jobType: 'deals' },
+						created_at: new Date().toISOString(),
+						updated_at: new Date().toISOString(),
+					})
+					.select('id')
+					.single();
+
+				if (error || !newJob) return new Response(String(error?.message ?? 'Failed to create job'), { status: 500 });
+				await enqueueSyncTick(env, newJob.id as string);
+				return Response.json({ jobId: newJob.id });
 			} catch (err) {
 				return new Response(String(err), { status: 500 });
 			}

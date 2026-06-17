@@ -14,6 +14,7 @@ export const GET: APIRoute = async ({ url }) => {
     redirect_uri: redirectUri,
     scope: [
       'ZohoCRM.modules.contacts.ALL',
+      'ZohoCRM.modules.deals.ALL',
       'ZohoCRM.modules.leads.ALL',
       'ZohoCRM.settings.fields.ALL',
       'ZohoCRM.users.ALL',

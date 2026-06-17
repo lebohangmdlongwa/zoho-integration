@@ -95,6 +95,51 @@ export async function countSyncedContacts(instanceId: string): Promise<number> {
   return count ?? 0;
 }
 
+export async function countSyncedDeals(instanceId: string): Promise<number> {
+  const { count } = await getSupabase()
+    .from('deals')
+    .select('*', { count: 'exact', head: true })
+    .eq('instance_id', instanceId);
+  return count ?? 0;
+}
+
+export interface DealRow {
+  id: string;
+  instance_id: string;
+  zoho_deal_id: string;
+  deal_name: string | null;
+  stage: string | null;
+  amount: number | null;
+  closing_date: string | null;
+  probability: number | null;
+  expected_revenue: number | null;
+  deal_type: string | null;
+  next_step: string | null;
+  lead_source: string | null;
+  description: string | null;
+  contact_name: string | null;
+  zoho_contact_id: string | null;
+  last_synced_at: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export async function getDeals(
+  instanceId: string,
+  limit = 50,
+  offset = 0,
+): Promise<{ deals: DealRow[]; total: number }> {
+  const builder = getSupabase()
+    .from('deals')
+    .select('*', { count: 'exact' })
+    .eq('instance_id', instanceId)
+    .order('closing_date', { ascending: true });
+  // Cast needed because untyped createClient() returns SupabaseFilterBuilder which lacks .range()
+  const { data, count, error } = await (builder as any).range(offset, offset + limit - 1);
+  if (error) throw new Error(`getDeals: ${(error as any).message}`);
+  return { deals: (data ?? []) as DealRow[], total: count ?? 0 };
+}
+
 // ── ID map helpers ────────────────────────────────────────────────
 
 export async function getIdMapByWixId(

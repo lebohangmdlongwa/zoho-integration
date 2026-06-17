@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
+import { handleDealsWebhook } from './deals-webhook';
 
 // Subset of index.ts Env — structurally compatible via TypeScript structural typing
 export interface WebhookEnv {
@@ -341,8 +342,8 @@ export async function handleWebhook(request: Request, env: WebhookEnv): Promise<
 		console.log('[zoho-sync] webhook: skipped — missing channelId/operation/ids');
 		return Response.json({ ok: true });
 	}
-	if (payload.module !== 'Contacts') {
-		console.log('[zoho-sync] webhook: skipped — module is not Contacts', { module: payload.module });
+	if (payload.module !== 'Contacts' && payload.module !== 'Deals') {
+		console.log('[zoho-sync] webhook: skipped — unsupported module', { module: payload.module });
 		return Response.json({ ok: true });
 	}
 
@@ -357,6 +358,18 @@ export async function handleWebhook(request: Request, env: WebhookEnv): Promise<
 	}
 
 	const supabase = getSupabase(env);
+
+	// Deals are handled by a dedicated module — delegate and return early.
+	if (payload.module === 'Deals') {
+		const tokenRow = await getTokenByChannelId(supabase, channelId);
+		if (!tokenRow) return Response.json({ ok: true });
+		const instanceId = tokenRow.instance_id as string;
+		const siteId = tokenRow.site_id as string | null;
+		if (!siteId) return Response.json({ ok: true });
+		await handleDealsWebhook(env, instanceId, siteId, operation ?? '', ids, channelId, serverTime);
+		console.log('[zoho-sync] webhook: done processing deals', { channelId, operation, dealCount: ids.length, instanceId });
+		return Response.json({ ok: true });
+	}
 
 	const tokenRow = await getTokenByChannelId(supabase, channelId);
 	console.log('[zoho-sync] webhook: instance lookup', {

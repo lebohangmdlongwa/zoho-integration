@@ -20,6 +20,7 @@ import Topbar from './components/Topbar';
 import { MoreAppsByUs } from './components/MoreAppsByUs';
 import { openUpgradeUrl } from './upgradeUtils';
 import ManageContactsPage from './pages/ManageContactsPage';
+import DealsPage from './pages/DealsPage';
 import FieldMappingPage from './pages/FieldMappingPage';
 import PlansPage from './pages/PlansPage';
 import SupportPage from './pages/SupportPage';
@@ -119,6 +120,7 @@ const SetupProgressBar: FC<{ steps: SetupStep[]; onNavigate: (page: PageKey) => 
 const PAGE_TITLES: Record<PageKey, string> = {
   dashboard: 'Dashboard',
   contacts: 'Manage Contacts',
+  deals: 'Deals',
   widget: 'Widget',
   fieldMapping: 'Field Mapping',
   activity: 'Recent Activity',
@@ -629,6 +631,7 @@ const DashboardPage: FC = () => {
             {currentPage === 'contacts' && (
               <ManageContactsPage orgId={status?.orgId?.toString()} upgradeUrl={upgradeUrl} contactLimit={contactLimit} onSyncComplete={fetchStatus} />
             )}
+            {currentPage === 'deals' && <DealsPage />}
             {currentPage === 'fieldMapping' && (
               <FieldMappingPage
                 editorUrl={editorUrl}
