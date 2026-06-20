@@ -1,6 +1,7 @@
 import type { FC } from 'react';
 import { Text } from '@wix/design-system';
 import { styles } from './styles/appCard';
+import { trackEvent } from '../../../utils/trackEvent';
 
 interface AppCardProps {
   name: string;
@@ -24,6 +25,7 @@ export const AppCard: FC<AppCardProps> = ({ name, description, icon, url }) => (
       href={url}
       target="_blank"
       rel="noreferrer"
+      onClick={() => trackEvent('get_app_click', { app_name: name })}
       style={{
         display: 'inline-flex',
         alignItems: 'center',

@@ -135,13 +135,14 @@ async function wixDeleteContact(env: WebhookEnv, instanceId: string, siteId: str
 interface ZohoConfig {
 	zohoToken: string;
 	apiDomain: string;
+	siteId: string;
 }
 
 async function getZohoConfig(env: WebhookEnv, instanceId: string): Promise<ZohoConfig> {
 	const sb = getSupabase(env);
 	const { data } = await sb
 		.from('zoho_tokens')
-		.select('access_token, refresh_token, expires_at, api_domain, dc')
+		.select('access_token, refresh_token, expires_at, api_domain, dc, site_id')
 		.eq('instance_id', instanceId)
 		.single();
 
@@ -169,7 +170,11 @@ async function getZohoConfig(env: WebhookEnv, instanceId: string): Promise<ZohoC
 		await sb.from('zoho_tokens').update({ access_token: token, expires_at: Date.now() + (tokens.expires_in ?? 3600) * 1000 }).eq('instance_id', instanceId);
 	}
 
-	return { zohoToken: token, apiDomain: (data.api_domain as string | null) ?? 'https://www.zohoapis.com' };
+	return {
+		zohoToken: token,
+		apiDomain: (data.api_domain as string | null) ?? 'https://www.zohoapis.com',
+		siteId: (data.site_id as string | null) ?? instanceId,
+	};
 }
 
 async function zohoFetchContact(zohoConfig: ZohoConfig, zohoId: string): Promise<Record<string, unknown> | null> {
@@ -193,6 +198,76 @@ function applyTransform(value: string, transform?: string): string {
 	return value;
 }
 
+const COUNTRY_NAME_TO_ISO2: Record<string, string> = {
+	'afghanistan': 'AF', 'albania': 'AL', 'algeria': 'DZ', 'andorra': 'AD', 'angola': 'AO',
+	'argentina': 'AR', 'armenia': 'AM', 'australia': 'AU', 'austria': 'AT', 'azerbaijan': 'AZ',
+	'bahrain': 'BH', 'bangladesh': 'BD', 'belarus': 'BY', 'belgium': 'BE', 'benin': 'BJ',
+	'bolivia': 'BO', 'bosnia and herzegovina': 'BA', 'botswana': 'BW', 'brazil': 'BR',
+	'bulgaria': 'BG', 'burkina faso': 'BF', 'cameroon': 'CM', 'canada': 'CA', 'chile': 'CL',
+	'china': 'CN', 'colombia': 'CO', 'congo': 'CG', 'costa rica': 'CR', 'croatia': 'HR',
+	'cuba': 'CU', 'cyprus': 'CY', 'czech republic': 'CZ', 'czechia': 'CZ', 'denmark': 'DK',
+	'dominican republic': 'DO', 'ecuador': 'EC', 'egypt': 'EG', 'el salvador': 'SV',
+	'estonia': 'EE', 'ethiopia': 'ET', 'finland': 'FI', 'france': 'FR', 'georgia': 'GE',
+	'germany': 'DE', 'ghana': 'GH', 'greece': 'GR', 'guatemala': 'GT', 'honduras': 'HN',
+	'hungary': 'HU', 'iceland': 'IS', 'india': 'IN', 'indonesia': 'ID', 'iran': 'IR',
+	'iraq': 'IQ', 'ireland': 'IE', 'israel': 'IL', 'italy': 'IT', 'ivory coast': 'CI',
+	'jamaica': 'JM', 'japan': 'JP', 'jordan': 'JO', 'kazakhstan': 'KZ', 'kenya': 'KE',
+	'kuwait': 'KW', 'latvia': 'LV', 'lebanon': 'LB', 'libya': 'LY', 'lithuania': 'LT',
+	'luxembourg': 'LU', 'madagascar': 'MG', 'malaysia': 'MY', 'mali': 'ML', 'malta': 'MT',
+	'mauritius': 'MU', 'mexico': 'MX', 'moldova': 'MD', 'mongolia': 'MN', 'morocco': 'MA',
+	'mozambique': 'MZ', 'myanmar': 'MM', 'namibia': 'NA', 'nepal': 'NP', 'netherlands': 'NL',
+	'new zealand': 'NZ', 'nicaragua': 'NI', 'niger': 'NE', 'nigeria': 'NG', 'north korea': 'KP',
+	'norway': 'NO', 'oman': 'OM', 'pakistan': 'PK', 'panama': 'PA', 'paraguay': 'PY',
+	'peru': 'PE', 'philippines': 'PH', 'poland': 'PL', 'portugal': 'PT', 'qatar': 'QA',
+	'romania': 'RO', 'russia': 'RU', 'russian federation': 'RU', 'rwanda': 'RW',
+	'saudi arabia': 'SA', 'senegal': 'SN', 'serbia': 'RS', 'singapore': 'SG', 'slovakia': 'SK',
+	'slovenia': 'SI', 'somalia': 'SO', 'south africa': 'ZA', 'south korea': 'KR', 'spain': 'ES',
+	'sri lanka': 'LK', 'sudan': 'SD', 'sweden': 'SE', 'switzerland': 'CH', 'syria': 'SY',
+	'taiwan': 'TW', 'tanzania': 'TZ', 'thailand': 'TH', 'tunisia': 'TN', 'turkey': 'TR',
+	'turkiye': 'TR', 'uganda': 'UG', 'ukraine': 'UA', 'united arab emirates': 'AE', 'uae': 'AE',
+	'united kingdom': 'GB', 'uk': 'GB', 'great britain': 'GB', 'england': 'GB',
+	'united states': 'US', 'usa': 'US', 'united states of america': 'US', 'uruguay': 'UY',
+	'uzbekistan': 'UZ', 'venezuela': 'VE', 'vietnam': 'VN', 'viet nam': 'VN',
+	'yemen': 'YE', 'zambia': 'ZM', 'zimbabwe': 'ZW',
+};
+
+function toIso2Country(value: string): string | null {
+	if (/^[A-Z]{2}$/.test(value)) return value;
+	return COUNTRY_NAME_TO_ISO2[value.toLowerCase()] ?? null;
+}
+
+const CALLING_CODE: Record<string, string> = {
+	AF:'93',AL:'355',DZ:'213',AD:'376',AO:'244',AG:'1268',AR:'54',AM:'374',AU:'61',AT:'43',
+	AZ:'994',BS:'1242',BH:'973',BD:'880',BB:'1246',BY:'375',BE:'32',BZ:'501',BJ:'229',
+	BT:'975',BO:'591',BA:'387',BW:'267',BR:'55',BN:'673',BG:'359',BF:'226',BI:'257',
+	CV:'238',KH:'855',CM:'237',CA:'1',CF:'236',TD:'235',CL:'56',CN:'86',CO:'57',KM:'269',
+	CD:'243',CG:'242',CR:'506',HR:'385',CU:'53',CY:'357',CZ:'420',DK:'45',DJ:'253',
+	DM:'1767',DO:'1809',EC:'593',EG:'20',SV:'503',GQ:'240',ER:'291',EE:'372',SZ:'268',
+	ET:'251',FJ:'679',FI:'358',FR:'33',GA:'241',GM:'220',GE:'995',DE:'49',GH:'233',
+	GR:'30',GD:'1473',GT:'502',GN:'224',GW:'245',GY:'592',HT:'509',HN:'504',HU:'36',
+	IS:'354',IN:'91',ID:'62',IR:'98',IQ:'964',IE:'353',IL:'972',IT:'39',JM:'1876',
+	JP:'81',JO:'962',KZ:'7',KE:'254',KI:'686',KP:'850',KR:'82',KW:'965',KG:'996',
+	LA:'856',LV:'371',LB:'961',LS:'266',LR:'231',LY:'218',LI:'423',LT:'370',LU:'352',
+	MG:'261',MW:'265',MY:'60',MV:'960',ML:'223',MT:'356',MH:'692',MR:'222',MU:'230',
+	MX:'52',FM:'691',MD:'373',MC:'377',MN:'976',ME:'382',MA:'212',MZ:'258',MM:'95',
+	NA:'264',NR:'674',NP:'977',NL:'31',NZ:'64',NI:'505',NE:'227',NG:'234',NO:'47',
+	OM:'968',PK:'92',PW:'680',PA:'507',PG:'675',PY:'595',PE:'51',PH:'63',PL:'48',
+	PT:'351',QA:'974',RO:'40',RU:'7',RW:'250',KN:'1869',LC:'1758',VC:'1784',WS:'685',
+	SM:'378',ST:'239',SA:'966',SN:'221',RS:'381',SC:'248',SL:'232',SG:'65',SK:'421',
+	SI:'386',SB:'677',SO:'252',ZA:'27',SS:'211',ES:'34',LK:'94',SD:'249',SR:'597',
+	SE:'46',CH:'41',SY:'963',TW:'886',TJ:'992',TZ:'255',TH:'66',TL:'670',TG:'228',
+	TO:'676',TT:'1868',TN:'216',TR:'90',TM:'993',TV:'688',UG:'256',UA:'380',AE:'971',
+	GB:'44',US:'1',UY:'598',UZ:'998',VU:'678',VE:'58',VN:'84',YE:'967',ZM:'260',ZW:'263',
+};
+
+function stripCallingCode(phone: string, iso2: string): string {
+	const code = CALLING_CODE[iso2];
+	if (code && phone.startsWith(code) && phone.length > code.length) {
+		return phone.slice(code.length);
+	}
+	return phone;
+}
+
 async function getFieldMappings(env: WebhookEnv, instanceId: string): Promise<FieldMapping[]> {
 	const { data } = await getSupabase(env)
 		.from('contact_field_mappings')
@@ -201,14 +276,24 @@ async function getFieldMappings(env: WebhookEnv, instanceId: string): Promise<Fi
 		.single();
 	const saved: FieldMapping[] = (data?.mappings as FieldMapping[]) ?? [];
 	const defaults: FieldMapping[] = [
-		{ wixField: 'info.name.first', zohoProp: 'First_Name', direction: 'bidirectional' },
-		{ wixField: 'info.name.last', zohoProp: 'Last_Name', direction: 'bidirectional' },
-		{ wixField: 'info.emails', zohoProp: 'Email', direction: 'bidirectional' },
-		{ wixField: 'info.phones', zohoProp: 'Phone', direction: 'bidirectional' },
-		{ wixField: 'info.company', zohoProp: 'Account_Name', direction: 'bidirectional' },
+		{ wixField: 'info.name.first',               zohoProp: 'First_Name',    direction: 'bidirectional' },
+		{ wixField: 'info.name.last',                zohoProp: 'Last_Name',     direction: 'bidirectional' },
+		{ wixField: 'info.emails[0].email',          zohoProp: 'Email',         direction: 'bidirectional' },
+		{ wixField: 'info.phones[0].phone',          zohoProp: 'Phone',         direction: 'bidirectional' },
+		{ wixField: 'info.company.name',             zohoProp: 'Account_Name',  direction: 'bidirectional' },
+		{ wixField: 'info.name.prefix',              zohoProp: 'Title',         direction: 'bidirectional' },
+		{ wixField: 'info.addresses[0].addressLine', zohoProp: 'Mailing_Street',  direction: 'bidirectional' },
+		{ wixField: 'info.addresses[0].city',        zohoProp: 'Mailing_City',    direction: 'bidirectional' },
+		{ wixField: 'info.addresses[0].subdivision', zohoProp: 'Mailing_State',   direction: 'bidirectional' },
+		{ wixField: 'info.addresses[0].postalCode',  zohoProp: 'Mailing_Zip',     direction: 'bidirectional' },
+		{ wixField: 'info.addresses[0].country',     zohoProp: 'Mailing_Country', direction: 'bidirectional' },
+		{ wixField: 'info.addresses[0].addressLine', zohoProp: 'Other_Street',    direction: 'zoho_to_wix' },
+		{ wixField: 'info.addresses[0].city',        zohoProp: 'Other_City',      direction: 'zoho_to_wix' },
+		{ wixField: 'info.addresses[0].subdivision', zohoProp: 'Other_State',     direction: 'zoho_to_wix' },
+		{ wixField: 'info.addresses[0].postalCode',  zohoProp: 'Other_Zip',       direction: 'zoho_to_wix' },
+		{ wixField: 'info.addresses[0].country',     zohoProp: 'Other_Country',   direction: 'zoho_to_wix' },
 	];
-	const savedProps = new Set(saved.map((m) => m.zohoProp));
-	return [...saved, ...defaults.filter((d) => !savedProps.has(d.zohoProp))];
+	return saved.length ? saved : defaults;
 }
 
 function buildWixInfo(zohoContact: Record<string, unknown>, mappings: FieldMapping[]): Record<string, unknown> {
@@ -223,20 +308,53 @@ function buildWixInfo(zohoContact: Record<string, unknown>, mappings: FieldMappi
 			: String(raw);
 		if (!rawStr) continue;
 		const value = applyTransform(rawStr, m.transform);
-		const parts = m.wixField.replace('info.', '').replace(/\[(\d+)\]/g, '.$1').split('.');
 
-		if (parts[0] === 'name') {
-			(info.name as Record<string, string> | undefined) ?? ((info.name as Record<string, unknown>) = {});
-			((info.name as Record<string, unknown>))[parts[1]] = value;
-		} else if (parts[0] === 'emails') {
-			if (value.endsWith('.invalid') || value.endsWith('.test') || value.endsWith('.example')) continue;
-			info.emails = { items: [{ email: value, tag: 'MAIN' }] };
-		} else if (parts[0] === 'phones') {
-			info.phones = { items: [{ phone: value, tag: 'MAIN' }] };
-		} else if (parts[0] === 'company') {
-			info.company = value;
-		} else if (parts[0] === 'jobTitle') {
-			info.jobTitle = value;
+		switch (m.wixField) {
+			case 'info.name.first':
+				(info.name as any) ??= {};
+				(info.name as any).first = value;
+				break;
+			case 'info.name.last':
+				(info.name as any) ??= {};
+				(info.name as any).last = value;
+				break;
+			case 'info.emails[0].email':
+				if (value.endsWith('.invalid') || value.endsWith('.test') || value.endsWith('.example')) break;
+				info.emails = { items: [{ email: value, tag: 'MAIN' }] };
+				break;
+			case 'info.phones[0].phone':
+				info.phones = { items: [{ phone: value, tag: 'MAIN' }] };
+				break;
+			case 'info.company.name':
+				info.company = { name: value };
+				break;
+			case 'info.name.prefix':
+				(info.name as any) ??= {};
+				(info.name as any).prefix = value;
+				break;
+			case 'info.addresses[0].addressLine':
+			case 'info.addresses[0].city':
+			case 'info.addresses[0].subdivision':
+			case 'info.addresses[0].postalCode':
+			case 'info.addresses[0].country': {
+				const field = m.wixField.split('.').pop()!;
+				const finalValue = field === 'country' ? toIso2Country(value) : value;
+				if (field === 'country' && finalValue === null) break;
+				if (!info.addresses) info.addresses = { items: [{ tag: 'HOME', address: {} }] };
+				const addrObj = (info.addresses as any).items[0].address as Record<string, string>;
+				if (!addrObj[field]) addrObj[field] = finalValue!;
+				break;
+			}
+		}
+	}
+
+	// Set countryCode on phone and strip the calling-code prefix using the address country (already ISO2)
+	const addrCountry = (info.addresses as any)?.items?.[0]?.address?.country as string | undefined;
+	if (addrCountry && (info.phones as any)?.items?.[0]) {
+		const phoneItem = (info.phones as any).items[0];
+		phoneItem.countryCode = addrCountry;
+		if (typeof phoneItem.phone === 'string') {
+			phoneItem.phone = stripCallingCode(phoneItem.phone, addrCountry);
 		}
 	}
 

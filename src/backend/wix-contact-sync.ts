@@ -85,6 +85,14 @@ export async function syncContactToZoho(
       return;
     }
 
+    // Zoho requires Last_Name on create. Apply fallback so contacts without
+    // a last name still sync instead of being silently dropped.
+    const ensureLastName = (f: Record<string, string>) => {
+      if (!f['Last_Name']) {
+        f['Last_Name'] = '(Unknown)';
+      }
+    };
+
     let zohoId: string;
     if (existing) {
       try {
@@ -96,6 +104,7 @@ export async function syncContactToZoho(
             wixId: contactId,
             staleZohoId: existing.zoho_id,
           });
+          ensureLastName(fields);
           const created = await zohoCreateContact(ctx, fields);
           zohoId = String(created.details.id);
         } else {
@@ -116,9 +125,9 @@ export async function syncContactToZoho(
           await zohoUpdateContact(ctx, zohoExistingByEmail.id, fields);
           zohoId = zohoExistingByEmail.id;
         } else {
+          ensureLastName(fields);
           const created = await zohoCreateContact(ctx, fields);
-          const code = created.code;
-          if (code === 'DUPLICATE_DATA') {
+          if (created.code === 'DUPLICATE_DATA') {
             zohoId = String(created.details.id);
             await zohoUpdateContact(ctx, zohoId, fields);
           } else {

@@ -156,7 +156,7 @@ const ManageContactsPage: FC<{ orgId?: string; upgradeUrl?: string; contactLimit
       const timer = setInterval(async () => {
         try {
           const statusRes = await httpClient.fetchWithAuth(`/api/zoho/sync-job-status?jobId=${data.jobId}`);
-          const job = await statusRes.json() as { status: string; stats?: Record<string, number>; error?: string };
+          const job = await statusRes.json() as { status: string; stats?: Record<string, unknown>; error?: string };
 
           setSyncStatus(job.status);
 
@@ -169,6 +169,15 @@ const ManageContactsPage: FC<{ orgId?: string; upgradeUrl?: string; contactLimit
               setPage(0);
               await Promise.all([fetchContacts(0, false), fetchActivity(), fetchSyncErrors()]);
               onSyncComplete?.();
+              if (job.stats?.wixToZohoBlocked) {
+                const zohoCount = job.stats.zohoContactCount as number | undefined;
+                const limit = (job.stats.contactLimit as number | undefined) ?? contactLimit;
+                setContactLimitData({
+                  count: zohoCount ?? limit,
+                  limit,
+                  skippedCount: zohoCount !== undefined ? Math.max(0, zohoCount - limit) : undefined,
+                });
+              }
             } else {
               console.error('[Zoho Sync] job failed', job.error);
             }

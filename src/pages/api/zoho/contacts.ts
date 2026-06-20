@@ -89,7 +89,11 @@ export const GET: APIRoute = async ({ url }) => {
       last_synced_at: m.last_synced_at,
       last_sync_source: m.last_sync_source,
       status: log?.status ?? 'success',
-      direction: log?.direction ?? null,
+      direction: log?.direction === 'form_submit'
+        ? 'form_submit'
+        : m.last_sync_source === 'wix' ? 'wix_to_zoho'
+        : m.last_sync_source === 'zoho' ? 'zoho_to_wix'
+        : (log?.direction ?? null),
       error_message: log?.error_message ?? null,
       first_name: '',
       last_name: '',

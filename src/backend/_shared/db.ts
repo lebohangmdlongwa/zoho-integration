@@ -226,12 +226,22 @@ export async function batchUpsertIdMap(
 // ── Field mapping helpers ─────────────────────────────────────────
 
 const DEFAULT_MAPPINGS: FieldMapping[] = [
-  { wixField: 'info.name.first',      zohoProp: 'First_Name',   direction: 'bidirectional', transform: 'none' },
-  { wixField: 'info.name.last',       zohoProp: 'Last_Name',    direction: 'bidirectional', transform: 'none' },
-  { wixField: 'info.emails[0].email', zohoProp: 'Email',        direction: 'bidirectional', transform: 'none' },
-  { wixField: 'info.phones[0].phone', zohoProp: 'Phone',        direction: 'bidirectional', transform: 'none' },
-  { wixField: 'info.company.name',    zohoProp: 'Account_Name', direction: 'bidirectional', transform: 'none' },
-  { wixField: 'info.jobTitle',        zohoProp: 'Title',        direction: 'bidirectional', transform: 'none' },
+  { wixField: 'info.name.first',                  zohoProp: 'First_Name',    direction: 'bidirectional', transform: 'none' },
+  { wixField: 'info.name.last',                   zohoProp: 'Last_Name',     direction: 'bidirectional', transform: 'none' },
+  { wixField: 'info.emails[0].email',             zohoProp: 'Email',         direction: 'bidirectional', transform: 'none' },
+  { wixField: 'info.phones[0].phone',             zohoProp: 'Phone',         direction: 'bidirectional', transform: 'none' },
+  { wixField: 'info.company.name',                zohoProp: 'Account_Name',  direction: 'bidirectional', transform: 'none' },
+  { wixField: 'info.name.prefix',                 zohoProp: 'Title',         direction: 'bidirectional', transform: 'none' },
+  { wixField: 'info.addresses[0].addressLine', zohoProp: 'Mailing_Street',  direction: 'bidirectional', transform: 'none' },
+  { wixField: 'info.addresses[0].city',        zohoProp: 'Mailing_City',    direction: 'bidirectional', transform: 'none' },
+  { wixField: 'info.addresses[0].subdivision', zohoProp: 'Mailing_State',   direction: 'bidirectional', transform: 'none' },
+  { wixField: 'info.addresses[0].postalCode',  zohoProp: 'Mailing_Zip',     direction: 'bidirectional', transform: 'none' },
+  { wixField: 'info.addresses[0].country',     zohoProp: 'Mailing_Country', direction: 'bidirectional', transform: 'none' },
+  { wixField: 'info.addresses[0].addressLine', zohoProp: 'Other_Street',    direction: 'zoho_to_wix',   transform: 'none' },
+  { wixField: 'info.addresses[0].city',        zohoProp: 'Other_City',      direction: 'zoho_to_wix',   transform: 'none' },
+  { wixField: 'info.addresses[0].subdivision', zohoProp: 'Other_State',     direction: 'zoho_to_wix',   transform: 'none' },
+  { wixField: 'info.addresses[0].postalCode',  zohoProp: 'Other_Zip',       direction: 'zoho_to_wix',   transform: 'none' },
+  { wixField: 'info.addresses[0].country',     zohoProp: 'Other_Country',   direction: 'zoho_to_wix',   transform: 'none' },
 ];
 
 export async function getFieldMappings(instanceId: string): Promise<FieldMapping[]> {
@@ -311,4 +321,17 @@ export async function removeAllowedOrigin(
     .delete()
     .eq('instance_id', instanceId)
     .eq('origin', origin);
+}
+
+// ── Click event tracking ──────────────────────────────────────────
+
+export async function insertClickEvent(
+  orgId: string,
+  eventName: string,
+  properties?: Record<string, unknown>,
+): Promise<void> {
+  const { error } = await getSupabase()
+    .from('click_events')
+    .insert({ org_id: orgId, event_name: eventName, properties: properties ?? null });
+  if (error) console.error('[supabase] insertClickEvent failed', { code: error.code, message: error.message });
 }

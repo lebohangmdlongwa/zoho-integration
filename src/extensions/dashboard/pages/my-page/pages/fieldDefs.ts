@@ -49,24 +49,11 @@ export const WIX_FIELD_DEFS: { id: string; label: string; type: FieldType }[] =
     { id: 'info.phones[0].phone', label: 'Phone', type: 'phone' },
     { id: 'info.company.name', label: 'Company Name', type: 'name' },
     { id: 'info.jobTitle', label: 'Job Title', type: 'text' },
+    { id: 'info.addresses[0].addressLine', label: 'Street Address', type: 'text' },
     { id: 'info.addresses[0].city', label: 'City', type: 'text' },
-    { id: 'info.addresses[0].country', label: 'Country', type: 'text' },
+    { id: 'info.addresses[0].subdivision', label: 'State / Region', type: 'text' },
     { id: 'info.addresses[0].postalCode', label: 'Postal Code', type: 'text' },
-    {
-      id: 'extendedFields.custom.eventType',
-      label: 'Custom: Event Type',
-      type: 'custom',
-    },
-    {
-      id: 'extendedFields.custom.eventDate',
-      label: 'Custom: Event Date',
-      type: 'custom',
-    },
-    {
-      id: 'extendedFields.custom.leadSource',
-      label: 'Custom: Lead Source',
-      type: 'custom',
-    },
+    { id: 'info.addresses[0].country', label: 'Country', type: 'text' },
   ];
 
 export function getZohoFieldOptions(inputText: string) {

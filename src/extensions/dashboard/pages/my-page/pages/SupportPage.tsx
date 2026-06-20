@@ -1,6 +1,7 @@
 import type { FC } from 'react';
 import { useState } from 'react';
 import { Box, Card, Cell, Layout, Text } from '@wix/design-system';
+import { trackEvent } from '../utils/trackEvent';
 
 const SUPPORT_EMAIL = 'apps-support@prpl.io';
 
@@ -57,10 +58,16 @@ const SupportPage: FC = () => {
     navigator.clipboard.writeText(SUPPORT_EMAIL).then(() => {
       setCopied(true);
       setTimeout(() => setCopied(false), 2500);
+      trackEvent('copy_email_click');
     });
   };
 
-  const toggle = (i: number) => setOpenIndex(openIndex === i ? null : i);
+  const toggle = (i: number) => {
+    if (openIndex !== i) {
+      trackEvent('faq_item_expand', { question_index: i, question: FAQ_ITEMS[i].question });
+    }
+    setOpenIndex(openIndex === i ? null : i);
+  };
 
   return (
     <div

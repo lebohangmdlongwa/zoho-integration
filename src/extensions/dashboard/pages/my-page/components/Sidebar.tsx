@@ -76,8 +76,8 @@ const ChevronRightIcon = () => (
 const MAIN_NAV_ITEMS: { key: PageKey; label: string; icon: JSX.Element }[] = [
   { key: 'dashboard', label: 'Dashboard', icon: <DashboardIcon /> },
   { key: 'contacts', label: 'Manage Contacts', icon: <PeopleIcon /> },
-  { key: 'deals', label: 'Deals', icon: <DealsIcon /> },
   { key: 'fieldMapping', label: 'Field Mapping', icon: <FieldMappingIcon /> },
+  { key: 'deals', label: 'Deals', icon: <DealsIcon /> },
 ];
 
 const SETTINGS_NAV_ITEMS: { key: PageKey; label: string; icon: JSX.Element }[] =

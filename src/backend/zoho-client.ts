@@ -101,7 +101,12 @@ export async function zohoFetch<T>(
       `ZOHO ${init.method ?? "GET"} ${path} → ${res.status}: ${body}`
     );
   }
-  return res.json() as Promise<T>;
+  // 204 No Content — Zoho search endpoints return this when no records match.
+  // Some endpoints also return 200 with an empty body — handle both to avoid SyntaxError.
+  if (res.status === 204) return {} as T;
+  const text = await res.text();
+  if (!text.trim()) return {} as T;
+  return JSON.parse(text) as T;
 }
 
 // ── Public factory ────────────────────────────────────────────────
@@ -121,8 +126,8 @@ export async function createZohoContext(
 // ── Org info ──────────────────────────────────────────────────────
 
 export async function getOrgId(ctx: ZohoContext): Promise<string | null> {
-  const data = await zohoFetch<{ org: Array<{ id: string }> }>(ctx, "/org");
-  return data.org?.[0]?.id ?? null;
+  const data = await zohoFetch<{ org: Array<{ zgid: string }> }>(ctx, "/org");
+  return data.org?.[0]?.zgid ?? null;
 }
 
 // ── Contacts ──────────────────────────────────────────────────────
@@ -192,7 +197,12 @@ export async function createContact(
       body: JSON.stringify({ data: [fields] })
     }
   );
-  return result.data[0];
+  const r = result.data?.[0];
+  if (!r) throw new Error('ZOHO createContact: empty response');
+  if (r.code !== 'SUCCESS' && r.code !== 'DUPLICATE_DATA') {
+    throw new Error(`ZOHO createContact failed: ${r.code} – ${r.message}`);
+  }
+  return r;
 }
 
 export async function updateContact(

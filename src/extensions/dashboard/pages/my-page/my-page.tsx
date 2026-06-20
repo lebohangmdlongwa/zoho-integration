@@ -28,7 +28,7 @@ import ZohoCRMSplash from './components/ZohoCRMSplash';
 import ContactLimitModal from './ContactLimitModal';
 import { openRatePopup } from '../../_shared/rate-popup';
 
-const APP_ID = '1742b6a3-e4ad-4381-a2bc-961133180800';
+const APP_ID = '70904893-2772-4283-b3d8-9a369ebf5823';
 const REVIEW_URL = `https://www.wix.com/app-market/add-review/${APP_ID}`;
 const REVIEW_SHOWN_KEY = 'zoho_integration_review_shown_v1';
 
@@ -138,9 +138,8 @@ const DashboardPage: FC = () => {
   const [syncing, setSyncing] = useState(false);
   const [syncStatus, setSyncStatus] = useState<string>('');
   const [syncPollTimer, setSyncPollTimer] = useState<ReturnType<typeof setInterval> | null>(null);
-  const [registeringWebhook, setRegisteringWebhook] = useState(false);
-  const [webhookRegistered, setWebhookRegistered] = useState(false);
   const [connecting, setConnecting] = useState(false);
+  const [exchanging, setExchanging] = useState(false);
   const [showPreConnectModal, setShowPreConnectModal] = useState(false);
   const [showPostConnectModal, setShowPostConnectModal] = useState(false);
   const [showDisconnectModal, setShowDisconnectModal] = useState(false);
@@ -252,7 +251,7 @@ const DashboardPage: FC = () => {
     const timer = setInterval(async () => {
       try {
         const res = await httpClient.fetchWithAuth(`/api/zoho/sync-job-status?jobId=${jobId}`);
-        const job = await res.json() as { status: string; stats?: Record<string, number>; error?: string };
+        const job = await res.json() as { status: string; stats?: Record<string, unknown>; error?: string };
         setSyncStatus(job.status);
         if (job.status === 'done' || job.status === 'failed') {
           clearInterval(timer);
@@ -262,6 +261,15 @@ const DashboardPage: FC = () => {
           if (job.status === 'done') {
             await Promise.all([fetchLog(), fetchStatus()]);
             onDone?.();
+            if (job.stats?.wixToZohoBlocked) {
+              const zohoCount = job.stats.zohoContactCount as number | undefined;
+              const limit = (job.stats.contactLimit as number | undefined) ?? contactLimit;
+              setContactLimitData({
+                count: zohoCount ?? limit,
+                limit,
+                skippedCount: zohoCount !== undefined ? Math.max(0, zohoCount - limit) : undefined,
+              });
+            }
           } else {
             console.error('[Zoho Sync] job failed', job.error);
           }
@@ -304,11 +312,19 @@ const DashboardPage: FC = () => {
         .fetchWithAuth('/api/zoho/oauth-initiate')
         .then((r) => r.json());
       const popup = window.open(authUrl, 'zoho-oauth', 'width=620,height=720');
+      const locationPoll = setInterval(() => {
+        if (!popup || popup.closed) { clearInterval(locationPoll); return; }
+        try {
+          const href = popup.location.href;
+          if (href && href !== 'about:blank') { clearInterval(locationPoll); setExchanging(true); }
+        } catch { /* still on Zoho's domain — cross-origin, ignore */ }
+      }, 100);
       const listener = async (e: MessageEvent) => {
         if (!e.data || typeof e.data !== 'object') return;
         if (e.data.type !== 'zoho-code') return;
         window.removeEventListener('message', listener);
         popup?.close();
+        setExchanging(true);
         try {
           await httpClient.fetchWithAuth('/api/zoho/exchange-token', {
             method: 'POST',
@@ -318,7 +334,7 @@ const DashboardPage: FC = () => {
         } catch (err) {
           console.error('[Zoho connect] exchange-token failed', err);
         }
-        void fetchStatus().then(() => setShowPostConnectModal(true));
+        void fetchStatus().then(() => { setExchanging(false); setShowPostConnectModal(true); });
       };
       window.addEventListener('message', listener);
     } finally {
@@ -326,22 +342,7 @@ const DashboardPage: FC = () => {
     }
   };
 
-  const handleRegisterWebhook = async () => {
-    setRegisteringWebhook(true);
-    setWebhookRegistered(false);
-    try {
-      const res = await httpClient.fetchWithAuth('/api/zoho/register-webhook', { method: 'POST' });
-      if (res.ok) {
-        setWebhookRegistered(true);
-        void fetchStatus();
-        setTimeout(() => setWebhookRegistered(false), 4000);
-      }
-    } finally {
-      setRegisteringWebhook(false);
-    }
-  };
-
-  const handleDisconnect = () => setShowDisconnectModal(true);
+const handleDisconnect = () => setShowDisconnectModal(true);
 
   const confirmDisconnect = async () => {
     setDisconnecting(true);
@@ -385,7 +386,7 @@ const DashboardPage: FC = () => {
 
   return (
     <WixDesignSystemProvider features={{ newColorsBranding: true }}>
-      {appLoading && <ZohoCRMSplash fullScreen />}
+      {(appLoading || exchanging) && <ZohoCRMSplash fullScreen />}
       <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, display: 'flex', overflow: 'hidden', fontFamily: 'inherit' }}>
         {/* Sidebar */}
         <Sidebar
@@ -533,24 +534,7 @@ const DashboardPage: FC = () => {
                               </Text>
                             )}
                             <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
-                              <button
-                                onClick={handleRegisterWebhook}
-                                disabled={registeringWebhook}
-                                title={status.channelId ? 'Re-register webhook channel' : 'Webhook not registered — click to enable real-time sync from Zoho'}
-                                style={{ display: 'inline-flex', alignItems: 'center', gap: 7, height: 38, padding: '0 14px', borderRadius: 8, border: `1.5px solid ${webhookRegistered ? '#3ba755' : status.channelId ? '#e8ecf1' : '#f59e0b'}`, background: webhookRegistered ? '#f0faf3' : '#fff', cursor: registeringWebhook ? 'not-allowed' : 'pointer', transition: 'all 0.15s ease' }}
-                              >
-                                {registeringWebhook ? <Loader size="tiny" /> : (
-                                  <svg width="13" height="13" viewBox="0 0 24 24" fill={webhookRegistered ? '#3ba755' : status.channelId ? '#667085' : '#f59e0b'}>
-                                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/>
-                                  </svg>
-                                )}
-                                <Text size="small" weight="bold">
-                                  <span style={{ color: webhookRegistered ? '#3ba755' : status.channelId ? '#667085' : '#b45309' }}>
-                                    {webhookRegistered ? 'Webhook registered!' : status.channelId ? 'Re-register Webhook' : 'Register Webhook'}
-                                  </span>
-                                </Text>
-                              </button>
-                              <button
+<button
                                 onClick={handleSync}
                                 disabled={syncing}
                                 style={{ display: 'inline-flex', alignItems: 'center', gap: 7, height: 38, padding: '0 18px', borderRadius: 8, border: `1.5px solid ${ZOHO_BLUE}`, background: syncing ? '#eef3ff' : ZOHO_BLUE, cursor: syncing ? 'not-allowed' : 'pointer', transition: 'all 0.15s ease' }}

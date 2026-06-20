@@ -130,8 +130,11 @@ const DEFAULT_ROW: FieldMapping = {
   transform: 'none',
 };
 
+const LOCKED_ZOHO_PROPS = new Set(['First_Name', 'Last_Name', 'Email']);
+
 const SkeletonRow: FC = () => (
-  <div style={{ display: 'grid', gridTemplateColumns: '1.1fr 1.2fr 1.2fr 1fr 40px', gap: 12, padding: '14px 4px' }}>
+  <div style={{ display: 'grid', gridTemplateColumns: '20px 1.1fr 1.2fr 1.2fr 1fr 40px', gap: 12, padding: '14px 4px' }}>
+    <div />
     {[1, 2, 3, 4].map((k) => (
       <div
         key={k}
@@ -428,7 +431,8 @@ const FieldMappingPage: FC<FieldMappingPageProps> = ({
               ) : (
                 <div>
                   {/* Column headers */}
-                  <div style={{ display: 'grid', gridTemplateColumns: '1.1fr 1.2fr 1.2fr 1fr 40px', gap: 12, padding: '0 4px 12px', alignItems: 'center' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: '20px 1.1fr 1.2fr 1.2fr 1fr 40px', gap: 12, padding: '0 4px 12px', alignItems: 'center' }}>
+                    <div />
                     {['Wix Field', 'Zoho Field'].map((h) => (
                       <Text key={h} size="small" weight="bold">{h}</Text>
                     ))}
@@ -469,13 +473,21 @@ const FieldMappingPage: FC<FieldMappingPageProps> = ({
                   {/* Rows */}
                   {mappings.map((m, i) => {
                     const rowError = rowErrors[i];
+                    const isLocked = LOCKED_ZOHO_PROPS.has(m.zohoProp);
                     return (
                       <div key={i} style={{ borderBottom: i < mappings.length - 1 ? '1px solid #f0f4f7' : 'none', borderRadius: 6 }}>
                         <div
-                          style={{ display: 'grid', gridTemplateColumns: '1.1fr 1.2fr 1.2fr 1fr 40px', gap: 12, padding: rowError?.message ? '14px 4px 6px' : '14px 4px', alignItems: 'center', transition: 'background 0.15s ease' }}
+                          style={{ display: 'grid', gridTemplateColumns: '20px 1.1fr 1.2fr 1.2fr 1fr 40px', gap: 12, padding: rowError?.message ? '14px 4px 6px' : '14px 4px', alignItems: 'center', transition: 'background 0.15s ease' }}
                           onMouseEnter={(e) => { e.currentTarget.style.background = '#fafbfc'; }}
                           onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
                         >
+                          {isLocked ? (
+                            <Tooltip content="This mapping is required and cannot be removed" placement="top">
+                              <svg width="14" height="14" viewBox="0 0 24 24" fill="#9ca3af" style={{ display: 'block' }}>
+                                <path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z"/>
+                              </svg>
+                            </Tooltip>
+                          ) : <div />}
                           <AutoComplete
                             size="small"
                             value={wixDisplays[i] ?? ''}
@@ -522,15 +534,19 @@ const FieldMappingPage: FC<FieldMappingPageProps> = ({
                             options={TRANSFORM_OPTIONS}
                             onSelect={(o) => update(i, { transform: o.id as FieldMapping['transform'] })}
                           />
-                          <button
-                            onClick={() => remove(i)}
-                            title="Remove row"
-                            style={{ width: 32, height: 32, border: 'none', borderRadius: 6, background: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#d63b3b', fontSize: 16, transition: 'background 0.15s ease', flexShrink: 0 }}
-                            onMouseEnter={(e) => { e.currentTarget.style.background = '#fff0f0'; }}
-                            onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
-                          >
-                            ✕
-                          </button>
+                          {isLocked ? (
+                            <div style={{ width: 32, height: 32 }} />
+                          ) : (
+                            <button
+                              onClick={() => remove(i)}
+                              title="Remove row"
+                              style={{ width: 32, height: 32, border: 'none', borderRadius: 6, background: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#d63b3b', fontSize: 16, transition: 'background 0.15s ease', flexShrink: 0 }}
+                              onMouseEnter={(e) => { e.currentTarget.style.background = '#fff0f0'; }}
+                              onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
+                            >
+                              ✕
+                            </button>
+                          )}
                         </div>
 
                         {rowError && (

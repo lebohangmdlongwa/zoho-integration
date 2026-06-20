@@ -2,6 +2,7 @@ import type { FC } from 'react';
 import { Box, Card, Cell, Layout, Text } from '@wix/design-system';
 import { styles } from './styles';
 import { AppCard } from './ui/appCard';
+import { trackEvent } from '../../utils/trackEvent';
 
 const APPS = [
   {
@@ -78,18 +79,25 @@ export const MoreAppsByUs: FC = () => (
                       target="_blank"
                       rel="noopener noreferrer"
                       style={styles.exploreLink}
+                      onClick={() => trackEvent('explore_more_apps_click')}
                     >
                       Explore more apps <ExternalLinkIcon />
                     </a>
                   </Box>
-                  <div style={styles.poweredByRow}>
+                  <a
+                    href={EXPLORE_URL}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{ ...styles.poweredByRow, cursor: 'pointer', textDecoration: 'none' }}
+                    onClick={() => trackEvent('powered_by_purple_click')}
+                  >
                     <span style={styles.poweredByText}>Powered by</span>
                     <img
                       src="/purple-logo.png"
                       alt="PRPL"
                       style={styles.poweredByLogo}
                     />
-                  </div>
+                  </a>
                 </Box>
               </Box>
             </Card.Content>

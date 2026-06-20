@@ -1,5 +1,5 @@
 import type { FC } from 'react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Box, Cell, Layout, Loader, Text } from '@wix/design-system';
 import {
   FREE_FEATURES,
@@ -7,6 +7,7 @@ import {
   openUpgradeUrl,
   formatPrice,
 } from '../upgradeUtils';
+import { trackEvent } from '../utils/trackEvent';
 
 const buildTiers = (planPricing: PlanPricing): PricingTier[] => {
   const freeTier: PricingTier = { name: 'Free', features: FREE_FEATURES };
@@ -90,6 +91,7 @@ const TierCard: FC<TierCardProps> = ({
   currency,
   upgradeUrl,
 }) => {
+
   const tierName = tier.name.toLowerCase();
   const isCurrentPlan =
     tierName === 'free' ? !isPremium : isPremium && tierName === packageName;
@@ -189,7 +191,7 @@ const TierCard: FC<TierCardProps> = ({
           </button>
         ) : (
           <button
-            onClick={() => openUpgradeUrl(upgradeUrl)}
+            onClick={() => { openUpgradeUrl(upgradeUrl); trackEvent('plan_tier_viewed', { tier: tier.name }); trackEvent('upgrade_button_click', { tier: tier.name }); }}
             style={{
               width: '100%',
               padding: '12px',
@@ -278,7 +280,7 @@ const PlansPage: FC<PlansPageProps> = ({
                 }}
               >
                 <div
-                  onClick={() => setIsYearly(false)}
+                  onClick={() => { setIsYearly(false); trackEvent('monthly_toggle_click'); }}
                   style={{
                     padding: '6px 20px',
                     borderRadius: 7,
@@ -294,7 +296,7 @@ const PlansPage: FC<PlansPageProps> = ({
                 </div>
 
                 <div
-                  onClick={() => setIsYearly(true)}
+                  onClick={() => { setIsYearly(true); trackEvent('yearly_toggle_click'); }}
                   style={{
                     padding: '6px 20px',
                     borderRadius: 7,

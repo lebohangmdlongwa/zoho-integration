@@ -2,6 +2,8 @@ import type { APIRoute } from 'astro';
 import { auth } from '@wix/essentials';
 import { getSupabase } from '../../../backend/_shared/db.ts';
 import { customJson } from '../../../utils/customJson.ts';
+import { isWixToZohoAllowed, FREE_CONTACT_LIMIT } from '../../../backend/_shared/plan-limits.ts';
+import { createZohoContext, fetchContactsPage } from '../../../backend/zoho-client.ts';
 
 const SYNC_WORKER_URL = 'https://wix-zoho-sync-worker.microapps-2e4.workers.dev';
 
@@ -12,6 +14,20 @@ export const POST: APIRoute = async () => {
     return customJson({ error: 'Not authenticated' }, { status: 401 });
 
   const supabase = getSupabase();
+
+  const wixToZohoAllowed = await isWixToZohoAllowed();
+
+  // For free-plan jobs: count up to 101 Zoho contacts so the upgrade modal can show
+  // "Your Zoho account has X contacts — plan supports 100" with a real number.
+  // We count Zoho contacts because free plan only syncs Zoho→Wix (Phase 1 is skipped).
+  let zohoContactCount: number | undefined;
+  if (!wixToZohoAllowed) {
+    try {
+      const ctx = await createZohoContext(instanceId);
+      const { contacts } = await fetchContactsPage(ctx, { page: 1, perPage: 101 });
+      zohoContactCount = contacts.length;
+    } catch { /* ignore — modal falls back to plan limit */ }
+  }
 
   // Return early if a sync is already in progress
   const { data: active } = await supabase
@@ -25,14 +41,21 @@ export const POST: APIRoute = async () => {
     return customJson({ jobId: active.id, status: active.status, alreadyRunning: true });
   }
 
-  // Create job record — worker picks it up from the queue
+  const initialStats = !wixToZohoAllowed
+    ? { wixToZohoBlocked: true, contactLimit: FREE_CONTACT_LIMIT, ...(zohoContactCount !== undefined ? { zohoContactCount } : {}) }
+    : undefined;
+
+  // Create job record — worker picks it up from the queue.
+  // Free-plan jobs start with phase1_done: true so the worker skips Wix→Zoho entirely
+  // (same pattern as deals jobs which also have no Phase 1).
   const { data: job, error } = await supabase
     .from('sync_jobs')
     .insert({
       instance_id: instanceId,
       status: 'pending',
-      phase1_done: false,
+      phase1_done: !wixToZohoAllowed,
       phase2_done: false,
+      ...(initialStats ? { stats: initialStats } : {}),
     })
     .select('id')
     .single();

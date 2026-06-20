@@ -8,6 +8,7 @@ const DEFAULT_MAPPINGS: FieldMapping[] = [
   { wixField: 'info.emails[0].email', zohoProp: 'Email',        direction: 'bidirectional', transform: 'none' },
   { wixField: 'info.phones[0].phone', zohoProp: 'Phone',        direction: 'bidirectional', transform: 'none' },
   { wixField: 'info.company.name',    zohoProp: 'Account_Name', direction: 'bidirectional', transform: 'none' },
+  { wixField: 'info.jobTitle',        zohoProp: 'Title',        direction: 'bidirectional', transform: 'none' },
 ];
 
 export const GET: APIRoute = async () => {
